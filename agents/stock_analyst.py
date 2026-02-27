@@ -20,13 +20,11 @@ class StockAnalystState(TypedDict):
     report: Optional[dict]
     error: Optional[str]
 
-
 def validate_node(state: StockAnalystState) -> StockAnalystState:
     ticker = state["ticker"].upper().strip()
-    if not validate_ticker(ticker):
-        return {**state, "error": f"Invalid or unrecognized ticker: {ticker}"}
+    if not ticker or len(ticker) > 10:
+        return {**state, "error": f"Invalid ticker format: {ticker}"}
     return {**state, "ticker": ticker, "error": None}
-
 
 def fetch_data_node(state: StockAnalystState) -> StockAnalystState:
     if state.get("error"):

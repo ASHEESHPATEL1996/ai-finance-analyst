@@ -1,3 +1,4 @@
+import yfinance as yf
 from core.financial_data import (
     get_stock_info,
     get_historical_prices,
@@ -76,7 +77,13 @@ def get_portfolio_data(holdings: list[dict]) -> list[dict]:
 
 def validate_ticker(ticker: str) -> bool:
     try:
-        info = get_stock_info(ticker.upper().strip())
-        return info.get("name", "N/A") != "N/A"
+        stock = yf.Ticker(ticker.upper().strip())
+        info = stock.info
+        return bool(
+            info.get("regularMarketPrice")
+            or info.get("currentPrice")
+            or info.get("previousClose")
+            or info.get("longName")
+        )
     except Exception:
         return False
