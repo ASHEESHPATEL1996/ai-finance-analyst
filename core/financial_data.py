@@ -61,35 +61,40 @@ def get_stock_news(ticker: str, limit: int = 10) -> list[dict]:
 
 
 def get_news_sentiment(ticker: str) -> dict:
+    alpha_ticker = ticker.upper().replace(".NS", "").replace(".BO", "")
+
     url = "https://www.alphavantage.co/query"
     params = {
         "function": "NEWS_SENTIMENT",
-        "tickers": ticker,
+        "tickers": alpha_ticker,
         "apikey": settings.alpha_vantage_api_key,
         "limit": 20,
     }
-    response = requests.get(url, params=params, timeout=10)
-    data = response.json()
+    try:
+        response = requests.get(url, params=params, timeout=10)
+        data = response.json()
 
-    if "feed" not in data:
-        return {"error": "No sentiment data available", "articles": []}
+        if "feed" not in data:
+            return {"error": "No sentiment data available", "articles": []}
 
-    articles = []
-    for item in data["feed"]:
-        for ts in item.get("ticker_sentiment", []):
-            if ts["ticker"].upper() == ticker.upper():
-                articles.append({
-                    "title": item.get("title", ""),
-                    "source": item.get("source", ""),
-                    "published_at": item.get("time_published", ""),
-                    "overall_sentiment": item.get("overall_sentiment_label", ""),
-                    "ticker_sentiment": ts.get("ticker_sentiment_label", ""),
-                    "relevance_score": float(ts.get("relevance_score", 0)),
-                    "sentiment_score": float(ts.get("ticker_sentiment_score", 0)),
-                })
+        articles = []
+        for item in data["feed"]:
+            for ts in item.get("ticker_sentiment", []):
+                ts_ticker = ts["ticker"].upper().replace("$", "")
+                if ts_ticker in (ticker.upper(), alpha_ticker):
+                    articles.append({
+                        "title": item.get("title", ""),
+                        "source": item.get("source", ""),
+                        "published_at": item.get("time_published", ""),
+                        "overall_sentiment": item.get("overall_sentiment_label", ""),
+                        "ticker_sentiment": ts.get("ticker_sentiment_label", ""),
+                        "relevance_score": float(ts.get("relevance_score", 0)),
+                        "sentiment_score": float(ts.get("ticker_sentiment_score", 0)),
+                    })
 
-    return {"ticker": ticker.upper(), "articles": articles}
-
+        return {"ticker": ticker.upper(), "articles": articles}
+    except Exception:
+        return {"error": "Sentiment fetch failed", "articles": []}
 
 def get_financials(ticker: str) -> dict:
     stock = yf.Ticker(ticker)

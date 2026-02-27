@@ -14,9 +14,9 @@ def _get_company_name(ticker: str) -> str:
     except Exception:
         return ticker
 
-
 def get_ticker_news(ticker: str, limit: int = 15) -> list[dict]:
     ticker = ticker.upper().strip()
+    clean_ticker = ticker.replace(".NS", "").replace(".BO", "")
 
     yfinance_news = get_stock_news(ticker, limit=limit)
     alpha_articles = get_news_sentiment(ticker).get("articles", [])
@@ -42,7 +42,7 @@ def get_ticker_news(ticker: str, limit: int = 15) -> list[dict]:
     if len(combined) < 3 or _is_indian_ticker(ticker):
         company_name = _get_company_name(ticker)
         google_by_name = get_google_finance_news(company_name, limit=15)
-        google_by_ticker = get_google_finance_news(ticker.replace(".NS", "").replace(".BO", ""), limit=10)
+        google_by_ticker = get_google_finance_news(clean_ticker, limit=10)
         extra = [classify_article(a) for a in google_by_name + google_by_ticker]
         combined = combined + extra
 
