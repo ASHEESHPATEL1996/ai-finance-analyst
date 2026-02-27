@@ -1,10 +1,20 @@
 import streamlit as st
-import requests
 import sys
 import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-API_BASE = "http://127.0.0.1:8000"
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
+try:
+    for key, value in st.secrets.items():
+        os.environ.setdefault(key.upper(), str(value))
+except Exception:
+    pass
+
+from agents.stock_analyst import analyze_stock
+from agents.portfolio_risk import analyze_portfolio
+from agents.sentiment_tracker import track_sentiment
+from agents.research_assistant import chat
+from tools.search_ticker import find_ticker
 
 st.set_page_config(
     page_title="Fintelligence AI",
@@ -14,20 +24,29 @@ st.set_page_config(
 
 def api_post(endpoint: str, payload: dict) -> dict:
     try:
-        response = requests.post(f"{API_BASE}{endpoint}", json=payload, timeout=120)
-        return response.json()
-    except requests.exceptions.ConnectionError:
-        return {"success": False, "error": "Cannot connect to backend. Make sure the API server is running on port 8000."}
+        if endpoint == "/analyst/analyze":
+            data = analyze_stock(payload["ticker"])
+        elif endpoint == "/portfolio/analyze":
+            data = analyze_portfolio(payload["holdings"])
+        elif endpoint == "/sentiment/analyze":
+            data = track_sentiment(payload["tickers"])
+        elif endpoint == "/assistant/chat":
+            result = chat(payload["message"], payload.get("chat_history", []))
+            return {
+                "success": True,
+                "response": result.get("response", ""),
+                "intent": result.get("intent", ""),
+                "tool_result": result.get("tool_result"),
+            }
+        else:
+            return {"success": False, "error": "Unknown endpoint"}
+
+        if "error" in data:
+            return {"success": False, "error": data["error"]}
+        return {"success": True, "data": data}
+
     except Exception as e:
         return {"success": False, "error": str(e)}
-
-
-def api_get(endpoint: str) -> dict:
-    try:
-        response = requests.get(f"{API_BASE}{endpoint}", timeout=30)
-        return response.json()
-    except Exception:
-        return {"success": False}
 
 
 def get_currency_symbol(currency: str) -> str:
@@ -63,12 +82,7 @@ with st.sidebar:
     )
 
     st.divider()
-    health = api_get("/health")
-    if health.get("status") == "ok":
-        st.success("API Online")
-    else:
-        st.error("API Offline")
-
+    st.success("Running", icon="🟢")
     st.caption("For informational purposes only. Not financial advice.")
 
 
@@ -83,18 +97,19 @@ if page == "Stock Analyst":
 
         if search_btn and company_query:
             with st.spinner("Searching..."):
-                from tools.search_ticker import find_ticker
                 search_results = find_ticker(company_query)
 
             if not search_results or "error" in search_results[0]:
                 st.warning("No results found. Try a different company name.")
             else:
-                st.write("**Results — click a ticker to use it:**")
+                st.write("**Results:**")
                 for r in search_results:
-                    col1, col2, col3, col4 = st.columns([2, 3, 2, 2])
+                    col1, col2, col3 = st.columns([2, 3, 2])
                     col1.code(r.get("ticker", ""))
                     col2.write(r.get("name", ""))
-                    col3.write(r.get("exchange", "") + f" · {r.get('country', '')}")
+                    currency = r.get("currency", "")
+                    currency_text = f"💱 {currency}" if currency and currency != "Unknown" else ""
+                    col3.write(r.get("exchange", "") + f" · {r.get('country', '')} {currency_text}")
 
     ticker_input = st.text_input("Enter Ticker Symbol", placeholder="e.g. AAPL, RELIANCE.NS, TCS.NS")
     analyze_btn = st.button("Analyze Stock", type="primary")
@@ -109,7 +124,7 @@ if page == "Stock Analyst":
             data = result["data"]
             metrics = data.get("metrics", {})
 
-            currency = metrics.get("currency", "USD")
+            currency = metrics.get("currency") or "USD"
             symbol = get_currency_symbol(currency)
 
             if currency != "USD":
