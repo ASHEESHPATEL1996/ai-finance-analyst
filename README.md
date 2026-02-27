@@ -5,7 +5,7 @@ This is a production-grade **multi-agent investment research platform** that aut
 
 ## Live Demo
 
-👉 [fintelligence.streamlit.app](https://fintelligence.streamlit.app)
+👉 [ai-finance-analyst.streamlit.app](https://ai-finance-analyst-asheeshpatel1996.streamlit.app/)
 
 ---
 
